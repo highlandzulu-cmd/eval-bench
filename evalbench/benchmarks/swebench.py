@@ -59,7 +59,15 @@ class SWEBenchBenchmark(Benchmark):
     - max_instances: int | None
     - instance_ids: list[str] | None
     - task_repo: str | None            (local swe-bench-tasks checkout, for `swebench eval`'s local image builds)
-    - skip_eval: bool = False          (only generate predictions, skip Docker grading)
+    - skip_eval: bool = False          (skip grading entirely, only generate predictions)
+    - grading: "docker" | "deepeval" | "both" = "docker"
+      - docker: the real FAIL_TO_PASS/PASS_TO_PASS test run via `swebench eval` (needs Docker; can be slow/
+        resource-heavy, see README - this is the only grading mode that produces an official SWE-bench verdict)
+      - deepeval: an LLM-judge (https://deepeval.com) GEval score of whether the patch plausibly resolves the
+        issue, compared against the dataset's own reference patch - no Docker, much faster/cheaper, but it's
+        an opinion, not a test run. Options: deepeval_judge (a model dict like the top-level `model:` block;
+        defaults to the harness's own model) and deepeval_threshold (float, default 0.5).
+      - both: run both and keep results from each separately under report.extra.
     """
 
     def execute(self) -> BenchmarkReport:
@@ -76,11 +84,15 @@ class SWEBenchBenchmark(Benchmark):
         report = BenchmarkReport(
             run_id=self.run.run_id, benchmark="swebench", details_path=preds_path
         )
-        if not self.options.get("skip_eval", False):
-            self._grade(dataset_alias, preds_path, report)
-        else:
+        grading = self.options.get("grading", "docker")
+        if self.options.get("skip_eval", False):
             preds = json.loads(preds_path.read_text())
             report.total = len(preds)
+        else:
+            if grading in ("docker", "both"):
+                self._grade(dataset_alias, preds_path, report)
+            if grading in ("deepeval", "both"):
+                self._grade_with_deepeval(dataset_alias, preds_path, report)
         return report
 
     def _infer_native(self, dataset_alias: str, run_dir: Path, preds_path: Path) -> None:
@@ -179,6 +191,82 @@ class SWEBenchBenchmark(Benchmark):
             report.extra["raw_results"] = results
         else:
             print(f"[swebench] expected results at {results_path}, not found; check `swebench eval` output above")
+
+    def _grade_with_deepeval(self, dataset_alias: str, preds_path: Path, report: BenchmarkReport) -> None:
+        from datasets import load_dataset
+        from deepeval import evaluate
+        from deepeval.evaluate.configs import DisplayConfig
+        from deepeval.metrics import GEval
+        from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+
+        from evalbench.config import ModelConfig
+        from evalbench.evaluators.litellm_judge import LitellmJudgeModel
+
+        judge_options = self.options.get("deepeval_judge")
+        judge_model = ModelConfig(**judge_options) if judge_options else self.model
+        judge = LitellmJudgeModel(judge_model)
+
+        dataset_path = DATASET_ALIASES.get(dataset_alias, dataset_alias)
+        split = self.options.get("split", "test")
+        instances = {i["instance_id"]: i for i in load_dataset(dataset_path, split=split)}
+
+        preds = json.loads(preds_path.read_text())
+        metric = GEval(
+            name="SWE-bench Patch Correctness",
+            criteria=(
+                "Determine whether the 'actual output' (a code diff/patch) correctly "
+                "resolves the software issue described in 'input', achieving a similar "
+                "functional effect to the reference fix in 'expected output'. Judge on "
+                "functional correctness, not exact textual match - a differently-written "
+                "patch that fixes the same underlying bug the same way should score well. "
+                "A patch that is empty, unrelated, or only adds a test/reproduction script "
+                "without touching the buggy code should score low."
+            ),
+            evaluation_params=[
+                LLMTestCaseParams.INPUT,
+                LLMTestCaseParams.ACTUAL_OUTPUT,
+                LLMTestCaseParams.EXPECTED_OUTPUT,
+            ],
+            model=judge,
+            threshold=self.options.get("deepeval_threshold", 0.5),
+        )
+
+        test_cases = [
+            LLMTestCase(
+                name=instance_id,
+                input=instances[instance_id]["problem_statement"],
+                actual_output=pred["model_patch"] or "(no patch produced)",
+                expected_output=instances[instance_id].get("patch", ""),
+            )
+            for instance_id, pred in preds.items()
+            if instance_id in instances
+        ]
+
+        result = evaluate(
+            test_cases,
+            [metric],
+            display_config=DisplayConfig(print_results=False, show_indicator=False),
+        )
+
+        per_instance = [
+            {
+                "instance_id": r.name,
+                "success": r.success,
+                "score": r.metrics_data[0].score if r.metrics_data else None,
+                "reason": r.metrics_data[0].reason if r.metrics_data else None,
+            }
+            for r in result.test_results
+        ]
+        resolved = sum(1 for r in per_instance if r["success"])
+        report.extra["deepeval"] = {
+            "judge_model": judge.get_model_name(),
+            "total": len(per_instance),
+            "resolved": resolved,
+            "per_instance": per_instance,
+        }
+        if self.options.get("grading") == "deepeval":
+            report.total = len(per_instance)
+            report.resolved = resolved
 
 
 def _persist_trace(result, run_dir: Path, instance_id: str) -> None:

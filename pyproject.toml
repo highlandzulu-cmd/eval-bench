@@ -16,7 +16,8 @@ swebench = ["swebench>=2.1", "datasets>=2.19"]
 terminalbench = ["terminal-bench"]
 deepseek = ["deepseek-harness-sdk"]
 mini-swe-agent = ["mini-swe-agent"]
-all = ["eval-bench[swebench,terminalbench,deepseek,mini-swe-agent]"]
+deepeval = ["deepeval", "litellm"]
+all = ["eval-bench[swebench,terminalbench,deepseek,mini-swe-agent,deepeval]"]
 
 [project.scripts]
 evalbench = "evalbench.cli:app"

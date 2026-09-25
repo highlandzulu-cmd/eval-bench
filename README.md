@@ -22,7 +22,7 @@ Every run also persists each instance's full agent trace (every tool call, every
 ## Install
 
 ```bash
-pip install -e ".[all]"   # or pick extras: [deepseek], [mini-swe-agent], [swebench], [terminalbench]
+pip install -e ".[all]"   # or pick extras: [deepseek], [mini-swe-agent], [swebench], [terminalbench], [deepeval]
 ```
 
 You'll also need, depending on what you run:
@@ -78,5 +78,23 @@ This was built by reading each project's actual source and docs rather than gues
 - `configs/deepseek-harness.openrouter-gemma.yaml` — DSH driven by a Gemma model via OpenRouter instead of DeepSeek's own models.
 - `configs/goose.swebench-lite.yaml` — Block's Goose agent, via its real `goose run` headless CLI.
 - `configs/loop-harness.swebench-lite.yaml` — Soket AI's Loop, via its real `loop --print` headless mode (built by Loop itself for benchmark runners, with native Langfuse tracing).
+- `configs/loop-harness.soket.swebench-deepeval.yaml` / `configs/deepseek-harness.swebench-deepeval.yaml` — grade with a DeepEval GEval LLM-judge instead of Docker (see below).
+
+## Grading with an LLM judge instead of Docker
+
+`swebench eval`'s real FAIL_TO_PASS/PASS_TO_PASS test run is the only *official* SWE-bench verdict, but it needs Docker and can be genuinely slow (a single instance's environment build took 30+ minutes under QEMU emulation on Apple Silicon in testing — see the ARM64 notes below). Set `benchmark.options.grading: deepeval` to instead score each patch with [DeepEval](https://deepeval.com)'s `GEval` metric — an LLM judge compares the generated patch against the dataset's own reference patch for functional correctness, no Docker involved. `grading: both` runs both and keeps them separate under `report.extra`.
+
+```yaml
+benchmark:
+  options:
+    grading: deepeval
+    deepeval_judge:              # optional: defaults to the run's own model if omitted
+      provider: openrouter
+      name: anthropic/claude-sonnet-5
+      api_key_env: OPENROUTER_API_KEY
+    deepeval_threshold: 0.5
+```
+
+Use a judge model different from (and ideally stronger than) whichever model generated the patch — verified in testing that a weak judge (gpt-4o-mini judging its own kind of output) gives noisier, less decisive scores even on a clearly-correct patch. `evalbench/evaluators/litellm_judge.py` wraps any `ModelConfig` as a DeepEval-compatible judge via litellm.
 
 Have a specific "loop harness" or other project in mind that isn't wired up here? Point me at its repo/docs and I'll build a real adapter the same way — or use the `module:Class` / `generic-cli` escape hatches above right now without waiting.

@@ -59,10 +59,22 @@ class ModelConfig(BaseModel):
         return resolved or self._DEFAULT_BASE_URLS.get(self.provider)
 
     def as_litellm_model_string(self) -> str:
-        """Best-effort `provider/model` string for harnesses (mini-swe-agent,
-        Terminal-Bench's `tb run --model`) that route through litellm."""
-        if "/" in self.name:
-            return self.name
+        """`litellm_provider/model` string for harnesses (mini-swe-agent,
+        Terminal-Bench's `tb run --model`, the DeepEval litellm judge) that
+        route through litellm.
+
+        Bug history: this used to short-circuit and return `self.name`
+        unchanged whenever it contained a "/", to let a fully-qualified
+        litellm string pass through untouched. That's wrong for openrouter:
+        OpenRouter's own model ids are themselves "provider/model" pairs
+        (e.g. "openai/gpt-4o-mini", "anthropic/claude-sonnet-5"), so a name
+        with a slash is the *normal* case there, not a sign it's already
+        litellm-qualified - the old code silently dropped litellm's
+        "openrouter/" prefix and litellm routed straight to OpenAI's API
+        instead (a real bug, caught when the DeepEval judge model actually
+        exercised this path for the first time; deepseek_harness.py never
+        calls this method, so it went unnoticed until now).
+        """
         litellm_provider = {
             "anthropic": "anthropic",
             "openai": "openai",
@@ -70,6 +82,8 @@ class ModelConfig(BaseModel):
             "openrouter": "openrouter",
             "openai-compatible": "openai",
         }[self.provider]
+        if self.name.startswith(f"{litellm_provider}/"):
+            return self.name
         return f"{litellm_provider}/{self.name}"
 
 

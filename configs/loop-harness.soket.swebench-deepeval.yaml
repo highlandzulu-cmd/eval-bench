@@ -1,0 +1,41 @@
+# Loop harness driven by Soket AI's own gateway (provider id "soket",
+# https://api.tensorstudio.ai/v1), solving SWE-bench Lite, graded with an
+# LLM judge (DeepEval GEval) instead of Docker - fast, no Docker/QEMU
+# involved at all, at the cost of being a judged opinion rather than a
+# real FAIL_TO_PASS/PASS_TO_PASS test run.
+#
+# Requires: the `loop` CLI built from soketlabs/loop's feat/no-default-model
+# branch (see configs/loop-harness.swebench-lite.yaml for build steps),
+# pip install 'eval-bench[swebench,deepeval]', and SOKET_API_KEY (or
+# TENSORSTUDIO_API_KEY / LOOP_API_KEY) set. Pick any model id from Soket's
+# own catalog (check `~/.loop/agent/models-store.json` after one interactive
+# `loop` session, or the /model picker) - qwen3-30b is Loop's own default.
+
+model:
+  provider: openai-compatible
+  name: qwen3-30b
+  api_key_env: SOKET_API_KEY
+
+harness:
+  name: loop-harness
+  options:
+    provider_name: soket
+    no_context_files: true
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 3
+    grading: deepeval
+    # deepeval_judge:                    # optional: a stronger/different model to judge with
+    #   provider: openrouter
+    #   name: anthropic/claude-sonnet-5
+    #   api_key_env: OPENROUTER_API_KEY
+    deepeval_threshold: 0.5
+
+run:
+  run_id: loop-soket-swebench-deepeval-001
+  output_dir: ./runs
+  max_workers: 1

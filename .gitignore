@@ -6,3 +6,4 @@ logs/
 *.egg-info/
 swe-bench-tasks/
 /*.json
+.deepeval/

@@ -1,0 +1,35 @@
+# DeepSeek Harness solving SWE-bench Lite, graded with an LLM judge
+# (DeepEval GEval) instead of Docker - see loop-harness.soket.swebench-
+# deepeval.yaml for why you'd pick this over the real Docker grading.
+#
+# Requires: pip install 'eval-bench[deepseek,swebench,deepeval]',
+# OPENROUTER_API_KEY set (or swap model: to deepseek-official + DEEPSEEK_API_KEY).
+
+model:
+  provider: openrouter
+  name: openai/gpt-4o-mini
+  api_key_env: OPENROUTER_API_KEY
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: false
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 3
+    grading: deepeval
+    deepeval_judge:                    # a stronger, independent judge - avoids the
+      provider: openrouter             # generating model grading its own work
+      name: anthropic/claude-sonnet-5
+      api_key_env: OPENROUTER_API_KEY
+    deepeval_threshold: 0.5
+
+run:
+  run_id: dsh-swebench-deepeval-001
+  output_dir: ./runs
+  max_workers: 1
