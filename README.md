@@ -4,13 +4,13 @@ Point any agent harness, at any model, at any eval benchmark — one YAML config
 
 ```
 model     -> which LLM, and how to auth it
-harness   -> which agent drives the model — DeepSeek Harness, mini-swe-agent, Goose, or
-             any harness of your own via a generic-cli command template or an import path
+harness   -> which agent drives the model — DeepSeek Harness, mini-swe-agent, Goose,
+             Loop, or any harness of your own via a generic-cli command template or an import path
 benchmark -> which suite grades the result (SWE-bench, Terminal-Bench)
 ```
 
 `harness.name` is never a closed list: it's one of `evalbench.harnesses.BUILTIN_HARNESSES`
-(`deepseek-harness`, `mini-swe-agent`, `goose`, `generic-cli`) **or** a
+(`deepseek-harness`, `mini-swe-agent`, `goose`, `loop-harness`, `generic-cli`) **or** a
 `module.path:ClassName` import path to a `Harness` subclass you wrote yourself,
 resolved the same way Terminal-Bench resolves its own `--agent-import-path`. Nothing
 in eval-bench's source needs editing to add a new one.
@@ -41,6 +41,7 @@ evalbench/
     deepseek_harness.py        # real adapter for DeepSeek Harness's Python SDK
     mini_swe_agent.py          # real adapter for mini-swe-agent's Python bindings
     goose.py                   # real adapter for Goose's `goose run` headless CLI
+    loop_harness.py            # real adapter for Soket AI's Loop (`loop --print`), feat/no-default-model branch
     generic_cli.py             # fallback: run any command template, capture `git diff`
   benchmarks/
     base.py                    # Benchmark ABC: execute() -> BenchmarkReport
@@ -76,5 +77,6 @@ This was built by reading each project's actual source and docs rather than gues
 - `configs/deepseek-harness.terminal-bench.yaml` — DSH installed and run inside each Terminal-Bench task container.
 - `configs/deepseek-harness.openrouter-gemma.yaml` — DSH driven by a Gemma model via OpenRouter instead of DeepSeek's own models.
 - `configs/goose.swebench-lite.yaml` — Block's Goose agent, via its real `goose run` headless CLI.
+- `configs/loop-harness.swebench-lite.yaml` — Soket AI's Loop, via its real `loop --print` headless mode (built by Loop itself for benchmark runners, with native Langfuse tracing).
 
 Have a specific "loop harness" or other project in mind that isn't wired up here? Point me at its repo/docs and I'll build a real adapter the same way — or use the `module:Class` / `generic-cli` escape hatches above right now without waiting.

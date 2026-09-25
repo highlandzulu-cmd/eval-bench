@@ -1,0 +1,37 @@
+# Loop (https://github.com/soketlabs/loop, feat/no-default-model branch)
+# solving SWE-bench Lite via its real headless `loop --print` mode, which is
+# explicitly built for benchmark runners (see harnesses/loop_harness.py).
+#
+# Requires: the `loop` binary on PATH, built from that exact branch:
+#   git clone https://github.com/soketlabs/loop && cd loop
+#   git checkout feat/no-default-model
+#   cargo install --path crates/loop-cli
+# pip install 'eval-bench[swebench]', Docker running, OPENROUTER_API_KEY set.
+
+model:
+  provider: openrouter
+  name: anthropic/claude-sonnet-5
+  api_key_env: OPENROUTER_API_KEY
+
+harness:
+  name: loop-harness
+  options:
+    no_context_files: true
+    # Optional real step-by-step tracing via Loop's own Langfuse export
+    # (otherwise we only save raw stdout/stderr as the trace):
+    # langfuse_host: https://cloud.langfuse.com
+    # langfuse_public_key_env: LANGFUSE_PUBLIC_KEY
+    # langfuse_secret_key_env: LANGFUSE_SECRET_KEY
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 1
+    skip_eval: true
+
+run:
+  run_id: loop-swebench-lite-001
+  output_dir: ./runs
+  max_workers: 1

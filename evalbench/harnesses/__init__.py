@@ -3,7 +3,7 @@ import importlib
 from evalbench.config import HarnessConfig, ModelConfig
 from evalbench.harnesses.base import Harness, HarnessResult
 
-BUILTIN_HARNESSES = ("deepseek-harness", "mini-swe-agent", "goose", "generic-cli")
+BUILTIN_HARNESSES = ("deepseek-harness", "mini-swe-agent", "goose", "loop-harness", "generic-cli")
 
 _REGISTRY = {}
 
@@ -13,6 +13,7 @@ def _lazy_registry() -> dict:
         from evalbench.harnesses.deepseek_harness import DeepSeekHarnessAdapter
         from evalbench.harnesses.generic_cli import GenericCliAdapter
         from evalbench.harnesses.goose import GooseAdapter
+        from evalbench.harnesses.loop_harness import LoopHarnessAdapter
         from evalbench.harnesses.mini_swe_agent import MiniSweAgentAdapter
 
         _REGISTRY.update(
@@ -20,6 +21,7 @@ def _lazy_registry() -> dict:
                 "deepseek-harness": DeepSeekHarnessAdapter,
                 "mini-swe-agent": MiniSweAgentAdapter,
                 "goose": GooseAdapter,
+                "loop-harness": LoopHarnessAdapter,
                 "generic-cli": GenericCliAdapter,
             }
         )

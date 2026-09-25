@@ -199,8 +199,9 @@ def _persist_trace(result, run_dir: Path, instance_id: str) -> None:
         if not result.extra.get("dsh_home"):
             result.raw_log_path.unlink(missing_ok=True)
 
-    if dsh_home := result.extra.get("dsh_home"):
-        shutil.rmtree(dsh_home, ignore_errors=True)
+    for key in ("dsh_home", "scratch_dir"):
+        if scratch_dir := result.extra.get(key):
+            shutil.rmtree(scratch_dir, ignore_errors=True)
 
 
 def _checkout_repo(repo: str, base_commit: str, workspace: Path) -> None:
