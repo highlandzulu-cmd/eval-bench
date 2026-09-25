@@ -1,0 +1,29 @@
+[project]
+name = "eval-bench"
+version = "0.1.0"
+description = "Config-driven pipeline for running agent harnesses against eval benchmarks (SWE-bench, Terminal-Bench)."
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    "rich>=13.7",
+    "gitpython>=3.1",
+]
+
+[project.optional-dependencies]
+swebench = ["swebench>=2.1", "datasets>=2.19"]
+terminalbench = ["terminal-bench"]
+deepseek = ["deepseek-harness-sdk"]
+mini-swe-agent = ["mini-swe-agent"]
+all = ["eval-bench[swebench,terminalbench,deepseek,mini-swe-agent]"]
+
+[project.scripts]
+evalbench = "evalbench.cli:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["evalbench*"]

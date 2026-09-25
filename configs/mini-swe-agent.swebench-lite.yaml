@@ -1,0 +1,26 @@
+# mini-swe-agent solving SWE-bench Lite. Since harness = mini-swe-agent,
+# evalbench shells out to SWE-bench's own `swebench infer` (which runs
+# mini-swe-agent end to end) instead of driving it instance-by-instance
+# itself — see evalbench/benchmarks/swebench.py:_infer_native.
+#
+# Requires: pip install 'eval-bench[mini-swe-agent,swebench]', Docker running,
+# ANTHROPIC_API_KEY set.
+
+model:
+  provider: anthropic
+  name: anthropic/claude-sonnet-5   # litellm-style provider/model string
+  api_key_env: ANTHROPIC_API_KEY
+
+harness:
+  name: mini-swe-agent
+  options: {}
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+
+run:
+  run_id: mini-swe-swebench-lite-001
+  output_dir: ./runs
+  max_workers: 4

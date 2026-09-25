@@ -1,0 +1,34 @@
+# DeepSeek Harness (dsh) driven by a Gemma model served through OpenRouter,
+# instead of DeepSeek's own models. This routes through DSH's real
+# multi-provider adapter (@deepseek-ai/dsh-llm-pi-ai) as a "hand-declared
+# gateway" — see evalbench/harnesses/deepseek_harness.py for how the Cordis
+# patch is built.
+#
+# Requires: pip install 'eval-bench[deepseek]', OPENROUTER_API_KEY set.
+# Pick any Gemma model id OpenRouter currently serves for `model.name`
+# (check https://openrouter.ai/models?q=gemma for the exact id).
+
+model:
+  provider: openrouter
+  name: google/gemma-3-27b-it
+  api_key_env: OPENROUTER_API_KEY
+  # base_url_env: OPENROUTER_BASE_URL   # optional override; defaults to
+  #                                        https://openrouter.ai/api/v1
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: true
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 2
+
+run:
+  run_id: dsh-openrouter-gemma-001
+  output_dir: ./runs
+  max_workers: 1

@@ -1,0 +1,30 @@
+# DeepSeek Harness (dsh) solving SWE-bench Lite instances.
+#
+# Requires: pip install 'eval-bench[deepseek,swebench]', Docker running
+# (SWE-bench's own grading harness needs it), and DEEPSEEK_API_KEY set.
+
+model:
+  provider: deepseek-official
+  name: deepseek-v4-flash
+  api_key_env: DEEPSEEK_API_KEY
+  # base_url_env: DEEPSEEK_BASE_URL   # set this instead if pointing at a
+  #                                     DeepSeek-compatible local/proxy endpoint
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: true   # gives the agent str_replace_editor, not just bash
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 5   # remove/raise once you trust the pipeline
+    skip_eval: false
+
+run:
+  run_id: dsh-swebench-lite-001
+  output_dir: ./runs
+  max_workers: 2

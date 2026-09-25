@@ -1,0 +1,30 @@
+# DeepSeek Harness (dsh) solving Terminal-Bench-Core tasks.
+#
+# Requires: pip install 'eval-bench[terminalbench]', Docker running,
+# DEEPSEEK_API_KEY set. Terminal-Bench installs deepseek-harness-sdk *inside*
+# each task's container (see evalbench/terminal_bench_agents/dsh-setup.sh.j2)
+# so your local machine doesn't need it.
+
+model:
+  provider: deepseek-official
+  name: deepseek-v4-flash
+  api_key_env: DEEPSEEK_API_KEY
+
+harness:
+  name: deepseek-harness
+  options: {}
+  # options:
+  #   patch: /abs/path/to/model.patch.yml   # only if DSH_MODEL isn't enough;
+  #                                            see deepseek_harness_agent.py docstring
+
+benchmark:
+  name: terminal-bench
+  options:
+    dataset_name: terminal-bench-core
+    dataset_version: "0.1.1"
+    n_concurrent: 4
+
+run:
+  run_id: dsh-terminal-bench-001
+  output_dir: ./runs
+  max_workers: 4
