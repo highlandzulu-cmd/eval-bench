@@ -4,9 +4,16 @@ Point any agent harness, at any model, at any eval benchmark — one YAML config
 
 ```
 model     -> which LLM, and how to auth it
-harness   -> which agent drives the model (DeepSeek Harness, mini-swe-agent, or a generic CLI you plug in)
+harness   -> which agent drives the model — DeepSeek Harness, mini-swe-agent, Goose, or
+             any harness of your own via a generic-cli command template or an import path
 benchmark -> which suite grades the result (SWE-bench, Terminal-Bench)
 ```
+
+`harness.name` is never a closed list: it's one of `evalbench.harnesses.BUILTIN_HARNESSES`
+(`deepseek-harness`, `mini-swe-agent`, `goose`, `generic-cli`) **or** a
+`module.path:ClassName` import path to a `Harness` subclass you wrote yourself,
+resolved the same way Terminal-Bench resolves its own `--agent-import-path`. Nothing
+in eval-bench's source needs editing to add a new one.
 
 `evalbench run configs/deepseek-harness.swebench-lite.yaml` runs the whole thing end to end and prints a resolve rate.
 
@@ -31,6 +38,7 @@ evalbench/
     base.py                    # Harness ABC: solve(instruction, workspace, session_id) -> patch
     deepseek_harness.py        # real adapter for DeepSeek Harness's Python SDK
     mini_swe_agent.py          # real adapter for mini-swe-agent's Python bindings
+    goose.py                   # real adapter for Goose's `goose run` headless CLI
     generic_cli.py             # fallback: run any command template, capture `git diff`
   benchmarks/
     base.py                    # Benchmark ABC: execute() -> BenchmarkReport
@@ -44,12 +52,12 @@ evalbench/
 
 ## Adding a harness
 
-Two extension points, because SWE-bench and Terminal-Bench have fundamentally different execution models:
+Two extension points, because SWE-bench and Terminal-Bench have fundamentally different execution models. Neither requires editing eval-bench's own source — that's what "harness-agnostic" means here.
 
-1. **Patch-producing harnesses** (SWE-bench, and eval-bench's own generic loop): subclass `evalbench.harnesses.base.Harness` and implement `solve(instruction, workspace, session_id) -> HarnessResult`. Register it in `evalbench/harnesses/__init__.py`.
-2. **Terminal-Bench**: Terminal-Bench drives the agent itself inside a Docker container over tmux. Subclass `terminal_bench.agents.installed_agents.abstract_installed_agent.AbstractInstalledAgent` (see `terminal_bench_agents/deepseek_harness_agent.py` for a worked example) and point `tb run` at it with `--agent-import-path module:Class`. Wire the harness name to that import path in `evalbench/benchmarks/terminal_bench.py`'s `_IMPORT_PATH_AGENTS`.
+1. **Patch-producing harnesses** (SWE-bench, and eval-bench's own generic loop): write a class anywhere on your PYTHONPATH that subclasses `evalbench.harnesses.base.Harness` and implements `solve(instruction, workspace, session_id) -> HarnessResult`, then point a config at it: `harness.name: mypackage.myharness:MyHarness`. It's resolved dynamically (`evalbench/harnesses/__init__.py:_import_harness_class`) exactly like Terminal-Bench resolves its own `--agent-import-path`. No PR to eval-bench needed. The four built-ins (`deepseek-harness`, `mini-swe-agent`, `goose`, `generic-cli`) are just names that skip that step.
+2. **Terminal-Bench**: Terminal-Bench drives the agent itself inside a Docker container over tmux, so the class shape is different — subclass `terminal_bench.agents.installed_agents.abstract_installed_agent.AbstractInstalledAgent` instead (see `terminal_bench_agents/deepseek_harness_agent.py` for a worked example) and set `harness.name` directly to its import path; `evalbench/benchmarks/terminal_bench.py` passes any name it doesn't recognize as a built-in tb agent (`mini-swe-agent`, `goose`, `claude-code`, `aider`, `codex`, `openhands`) straight through to `tb run --agent-import-path`.
 
-Don't have a real adapter yet for a harness? Use `harness.name: generic-cli` (SWE-bench side) and `harness.name: generic-cli` with `install_script`/`command` options (Terminal-Bench side) as a stand-in — see the docstrings in `generic_cli.py` / `generic_agent.py`.
+Don't have a real adapter yet for a harness? Use `harness.name: generic-cli` (SWE-bench side) and `harness.name: generic-cli` with `install_script`/`command` options (Terminal-Bench side) as a stand-in — see the docstrings in `generic_cli.py` / `generic_agent.py`. It just runs a command template and captures `git diff`, no Python class needed.
 
 ## Things worth double-checking before a big/expensive run
 
@@ -64,3 +72,7 @@ This was built by reading each project's actual source and docs rather than gues
 - `configs/deepseek-harness.swebench-lite.yaml` — DSH's Python SDK generates patches for SWE-bench Lite; grading via `swebench eval`.
 - `configs/mini-swe-agent.swebench-lite.yaml` — delegates entirely to `swebench infer` (which runs mini-swe-agent itself).
 - `configs/deepseek-harness.terminal-bench.yaml` — DSH installed and run inside each Terminal-Bench task container.
+- `configs/deepseek-harness.openrouter-gemma.yaml` — DSH driven by a Gemma model via OpenRouter instead of DeepSeek's own models.
+- `configs/goose.swebench-lite.yaml` — Block's Goose agent, via its real `goose run` headless CLI.
+
+Have a specific "loop harness" or other project in mind that isn't wired up here? Point me at its repo/docs and I'll build a real adapter the same way — or use the `module:Class` / `generic-cli` escape hatches above right now without waiting.

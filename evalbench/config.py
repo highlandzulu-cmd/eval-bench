@@ -74,9 +74,15 @@ class ModelConfig(BaseModel):
 
 
 class HarnessConfig(BaseModel):
-    """Which agent harness runs the task, and its harness-specific knobs."""
+    """Which agent harness runs the task, and its harness-specific knobs.
 
-    name: Literal["deepseek-harness", "mini-swe-agent", "generic-cli"]
+    `name` is either one of eval-bench's built-in harness names (see
+    `evalbench.harnesses.BUILTIN_HARNESSES`) or a `module.path:ClassName`
+    import path to your own `Harness` subclass — no core file needs editing
+    to add a new one. See evalbench/harnesses/base.py.
+    """
+
+    name: str
     options: dict[str, Any] = Field(default_factory=dict)
 
 

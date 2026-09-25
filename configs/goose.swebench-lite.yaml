@@ -1,0 +1,28 @@
+# Goose (https://github.com/block/goose) solving SWE-bench Lite instances,
+# via its real headless CLI: `goose run --no-session -t "<task>" --with-builtin developer`.
+#
+# Requires: the `goose` CLI on PATH (curl -fsSL
+# https://github.com/block/goose/releases/download/stable/download_cli.sh | bash),
+# pip install 'eval-bench[swebench]', Docker running, ANTHROPIC_API_KEY set.
+
+model:
+  provider: anthropic
+  name: claude-sonnet-5
+  api_key_env: ANTHROPIC_API_KEY
+
+harness:
+  name: goose
+  options:
+    builtins: developer   # gives goose file-edit + shell tools; required
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 2
+
+run:
+  run_id: goose-swebench-lite-001
+  output_dir: ./runs
+  max_workers: 1

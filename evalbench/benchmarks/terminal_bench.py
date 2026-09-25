@@ -22,7 +22,9 @@ from pathlib import Path
 
 from evalbench.benchmarks.base import Benchmark, BenchmarkReport
 
-_BUILTIN_AGENTS = {"mini-swe-agent"}  # tb's own --agent names we pass straight through
+# tb's own built-in --agent names (terminal_bench.agents.agent_name.AgentName)
+# we pass straight through instead of writing an adapter.
+_BUILTIN_AGENTS = {"mini-swe-agent", "goose", "claude-code", "aider", "codex", "openhands"}
 _IMPORT_PATH_AGENTS = {
     "deepseek-harness": "evalbench.terminal_bench_agents.deepseek_harness_agent:DeepSeekHarnessAgent",
     "generic-cli": "evalbench.terminal_bench_agents.generic_agent:GenericInstalledAgent",
@@ -62,12 +64,20 @@ class TerminalBenchBenchmark(Benchmark):
         harness_name = self.harness_config.name
         if harness_name in _BUILTIN_AGENTS:
             cmd += ["--agent", harness_name]
-        elif harness_name in _IMPORT_PATH_AGENTS:
-            cmd += ["--agent-import-path", _IMPORT_PATH_AGENTS[harness_name]]
+        else:
+            # a known eval-bench harness with a written tb agent plugin, or
+            # (the escape hatch) a raw "module:Class" import path to your
+            # own AbstractInstalledAgent subclass — see terminal_bench_agents/.
+            import_path = _IMPORT_PATH_AGENTS.get(harness_name, harness_name)
+            if ":" not in import_path:
+                raise ValueError(
+                    f"No Terminal-Bench agent mapping for harness '{harness_name}'. "
+                    f"Use one of {_BUILTIN_AGENTS | set(_IMPORT_PATH_AGENTS)}, or a "
+                    "'module.path:ClassName' import path to your own AbstractInstalledAgent."
+                )
+            cmd += ["--agent-import-path", import_path]
             for key, value in self.harness_config.options.items():
                 cmd += ["--agent-kwarg", f"{key}={value}"]
-        else:
-            raise ValueError(f"No Terminal-Bench agent mapping for harness '{harness_name}'")
 
         for task_id in self.options.get("task_ids", []) or []:
             cmd += ["--task-id", task_id]
