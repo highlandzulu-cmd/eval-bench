@@ -1,0 +1,29 @@
+# First real SWE-bench task: 1 instance, patch generation only (no Docker
+# grading yet) via the proven-working combo (openrouter/gpt-4o-mini,
+# bash-only tool — see deepseek_harness.py docstring for why the editor
+# tool is off).
+
+model:
+  provider: openrouter
+  name: openai/gpt-4o-mini
+  api_key_env: OPENROUTER_API_KEY
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: false
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 1
+    skip_eval: true   # just get a patch first; grade separately once this works
+    redo_existing: true
+
+run:
+  run_id: dsh-swebench-smoketest-001
+  output_dir: ./runs
+  max_workers: 1

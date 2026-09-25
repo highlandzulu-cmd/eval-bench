@@ -4,3 +4,5 @@ __pycache__/
 runs/
 logs/
 *.egg-info/
+swe-bench-tasks/
+/*.json

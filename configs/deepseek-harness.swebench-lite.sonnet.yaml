@@ -1,0 +1,28 @@
+# Same astropy__astropy-12907 instance gpt-4o-mini attempted (and failed:
+# botched a multi-line sed edit, then hallucinated success) - Sonnet 5 via
+# OpenRouter for direct comparison. Same harness/tool config (bash-only).
+
+model:
+  provider: openrouter
+  name: anthropic/claude-sonnet-5
+  api_key_env: OPENROUTER_API_KEY
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: false
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    instance_ids: ["astropy__astropy-12907"]
+    skip_eval: true
+    redo_existing: true
+
+run:
+  run_id: dsh-swebench-sonnet-001
+  output_dir: ./runs
+  max_workers: 1

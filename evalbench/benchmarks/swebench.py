@@ -28,6 +28,21 @@ from pathlib import Path
 from evalbench.benchmarks.base import Benchmark, BenchmarkReport
 from evalbench.harnesses import build_harness
 
+_TASK_INSTRUCTION_TEMPLATE = """\
+You are an autonomous coding agent working directly in a git repository \
+checked out at {workspace}. You have a persistent shell tool: use it to \
+explore the codebase, reproduce the problem, edit files (e.g. with sed, a \
+heredoc, or python), and verify your fix. This is not a conversation — do \
+not just explain or discuss the issue, actually make the code changes.
+
+Issue to resolve:
+
+{problem_statement}
+
+When you are done, make sure your changes are saved to disk in this \
+checked-out repository. Do not create a new branch or commit; leaving the \
+edits as uncommitted working-tree changes is correct and expected."""
+
 DATASET_ALIASES = {
     "full": "princeton-nlp/SWE-bench",
     "verified": "princeton-nlp/SWE-bench_Verified",
@@ -117,9 +132,12 @@ class SWEBenchBenchmark(Benchmark):
                 continue
             workspace = run_dir / "workspaces" / instance_id
             _checkout_repo(instance["repo"], instance["base_commit"], workspace)
+            instruction = _TASK_INSTRUCTION_TEMPLATE.format(
+                workspace=workspace, problem_statement=instance["problem_statement"]
+            )
             try:
                 result = harness.solve(
-                    instruction=instance["problem_statement"],
+                    instruction=instruction,
                     workspace=workspace,
                     session_id=instance_id,
                 )
