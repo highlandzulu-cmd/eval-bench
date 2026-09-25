@@ -48,11 +48,26 @@ class LoopHarnessAdapter(Harness):
     """options:
     - no_context_files: bool = True   (skip auto-loading AGENTS.md/CLAUDE.md from the checked-out repo)
     - provider_name: str              (required for provider: openai-compatible - see module docstring)
-    - loop_home_root: str | None      (defaults to a run-scoped temp dir; reused as LOOP_CODING_AGENT_DIR)
+    - loop_home_root: str | None      (see warning below; unset by default)
     - langfuse_host / langfuse_public_key_env / langfuse_secret_key_env: str
       (optional - wires up real step-by-step tracing via Loop's own Langfuse export;
       without these, only stdout/stderr are captured as the trace)
     - timeout_sec: int = 1800
+
+    loop_home_root warning: a *fresh* `LOOP_CODING_AGENT_DIR` has no cached
+    model catalog yet, and live-testing showed `--print` does NOT trigger a
+    catalog fetch before validating `--model` against it - it just fails
+    "unknown model", for every model, on a brand-new directory. There is no
+    scriptable `loop login` CLI subcommand either (`/login` only exists as a
+    TUI slash command), so this adapter cannot self-provision a working
+    fresh directory per task. Confirmed fix: run `loop` interactively once
+    yourself, `/login <provider>` there to populate its model catalog, and
+    either leave `loop_home_root` unset (defaults to Loop's own real config
+    dir, `~/.loop/agent`, reusing whatever you've already logged into) or
+    set it to that same directory explicitly for a dedicated-but-still-warm
+    location. Leaving it unset means benchmark runs share session history
+    and credentials with your own interactive Loop usage - that's the
+    tradeoff for it actually working without a documented warm-up flow.
     """
 
     def __init__(self, model, options):
@@ -81,9 +96,10 @@ class LoopHarnessAdapter(Harness):
         env = os.environ.copy()
 
         loop_home_root = self.options.get("loop_home_root")
-        loop_home = Path(loop_home_root or tempfile.mkdtemp(prefix="loop-home-")) / session_id
-        loop_home.mkdir(parents=True, exist_ok=True)
-        env["LOOP_CODING_AGENT_DIR"] = str(loop_home)
+        if loop_home_root:
+            env["LOOP_CODING_AGENT_DIR"] = loop_home_root
+        # else: leave LOOP_CODING_AGENT_DIR unset, so Loop uses its own
+        # default (~/.loop/agent) - see the loop_home_root warning above.
 
         if self.model.provider == "openai-compatible":
             # e.g. Soket's own gateway (provider id "soket", env SOKET_API_KEY /
@@ -157,7 +173,10 @@ class LoopHarnessAdapter(Harness):
             extra={
                 "returncode": proc.returncode,
                 "trace_id": trace_id,
-                "scratch_dir": str(loop_home),
+                # No scratch_dir: unlike the other harnesses, Loop's config
+                # dir is either the user's own real ~/.loop/agent or an
+                # explicitly-provided, deliberately-reused warm directory -
+                # never something we created ourselves to throw away.
             },
         )
 

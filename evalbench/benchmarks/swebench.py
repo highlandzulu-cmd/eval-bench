@@ -293,7 +293,19 @@ def _persist_trace(result, run_dir: Path, instance_id: str) -> None:
 
 
 def _checkout_repo(repo: str, base_commit: str, workspace: Path) -> None:
+    """Get `workspace` to a clean checkout of `repo` at `base_commit`.
+
+    If the directory already exists (a prior attempt on this instance, e.g.
+    a `redo_existing` rerun), reset it instead of reusing whatever state a
+    previous harness run left behind - a harness that edited files without
+    ever producing a captured patch (a real failure mode we hit with Loop
+    Harness: it can leave real file edits on disk while printing nothing)
+    would otherwise silently contaminate every later attempt on that same
+    instance with its leftover, unrelated changes.
+    """
     if workspace.exists():
+        subprocess.run(["git", "-C", str(workspace), "reset", "--hard", base_commit], check=True)
+        subprocess.run(["git", "-C", str(workspace), "clean", "-fdx"], check=True)
         return
     workspace.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "clone", f"https://github.com/{repo}.git", str(workspace)], check=True)

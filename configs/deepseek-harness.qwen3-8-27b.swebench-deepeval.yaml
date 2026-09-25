@@ -1,0 +1,39 @@
+# DeepSeek Harness driving Qwen3-8-27B via Soket AI's own gateway
+# (https://api.tensorstudio.ai/v1) - reached as a hand-declared
+# OpenAI-compatible provider through DSH's pi-ai adapter (see
+# evalbench/harnesses/deepseek_harness.py: _PI_AI_ROUTES["openai-compatible"]).
+# One SWE-bench Lite instance, graded with DeepEval (no Docker).
+#
+# Requires: pip install 'eval-bench[deepseek,swebench,deepeval]',
+# SOKET_API_KEY and SOKET_BASE_URL (https://api.tensorstudio.ai/v1) set,
+# OPENROUTER_API_KEY set (for the independent judge).
+
+model:
+  provider: openai-compatible
+  name: qwen3-8-27b
+  api_key_env: SOKET_API_KEY
+  base_url_env: SOKET_BASE_URL
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: false
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 1
+    grading: deepeval
+    deepeval_judge:
+      provider: openrouter
+      name: anthropic/claude-sonnet-5
+      api_key_env: OPENROUTER_API_KEY
+    deepeval_threshold: 0.5
+
+run:
+  run_id: dsh-qwen3-8-27b-deepeval-001
+  output_dir: ./runs
+  max_workers: 1

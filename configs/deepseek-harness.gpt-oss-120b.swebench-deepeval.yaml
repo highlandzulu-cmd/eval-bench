@@ -1,0 +1,35 @@
+# DeepSeek Harness driving gpt-oss-120b via OpenRouter (confirmed identical
+# to Soket's own gpt-oss-120b, no Soket key needed). One SWE-bench Lite
+# instance, graded with DeepEval (no Docker).
+#
+# Requires: pip install 'eval-bench[deepseek,swebench,deepeval]',
+# OPENROUTER_API_KEY set.
+
+model:
+  provider: openrouter
+  name: openai/gpt-oss-120b
+  api_key_env: OPENROUTER_API_KEY
+
+harness:
+  name: deepseek-harness
+  options:
+    profile: sdk-minimal
+    enable_editor_tool: false
+
+benchmark:
+  name: swebench
+  options:
+    dataset: lite
+    split: test
+    max_instances: 1
+    grading: deepeval
+    deepeval_judge:
+      provider: openrouter
+      name: anthropic/claude-sonnet-5
+      api_key_env: OPENROUTER_API_KEY
+    deepeval_threshold: 0.5
+
+run:
+  run_id: dsh-gpt-oss-120b-deepeval-001
+  output_dir: ./runs
+  max_workers: 1

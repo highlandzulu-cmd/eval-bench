@@ -10,7 +10,7 @@
 
 model:
   provider: openrouter
-  name: anthropic/claude-sonnet-5
+  name: openai/gpt-oss-120b
   api_key_env: OPENROUTER_API_KEY
 
 harness:
@@ -29,7 +29,13 @@ benchmark:
     dataset: lite
     split: test
     max_instances: 1
-    skip_eval: true
+    redo_existing: true
+    grading: deepeval
+    deepeval_judge:
+      provider: openrouter
+      name: anthropic/claude-sonnet-5
+      api_key_env: OPENROUTER_API_KEY
+    deepeval_threshold: 0.5
 
 run:
   run_id: loop-swebench-lite-001
