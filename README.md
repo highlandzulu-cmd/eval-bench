@@ -26,7 +26,7 @@ pip install -e ".[all]"   # or pick extras: [deepseek], [mini-swe-agent], [swebe
 ```
 
 You'll also need, depending on what you run:
-- **Docker** — both SWE-bench's grading harness and Terminal-Bench's task sandbox use it.
+- **Docker** — only if you run Terminal-Bench (its task sandbox needs it). SWE-bench grading no longer does - see below.
 - **`DEEPSEEK_API_KEY`** (or provider-appropriate key) exported in your shell.
 - The `swebench` CLI (`pip install swebench`) and/or `tb` CLI (`pip install terminal-bench`) on PATH — installed automatically by the `swebench`/`terminalbench` extras.
 
@@ -46,7 +46,7 @@ evalbench/
   benchmarks/
     base.py                    # Benchmark ABC: execute() -> BenchmarkReport
     swebench.py                # drives the harness per-instance OR shells out to `swebench infer`,
-                                # always grades via the real `swebench eval` CLI
+                                # always grades via a DeepEval LLM judge (no Docker - see below)
     terminal_bench.py          # shells out to `tb run` with the right --agent / --agent-import-path
   terminal_bench_agents/       # Terminal-Bench "installed agent" plugins (its own extension point)
     deepseek_harness_agent.py  # installs+runs `dsh` inside the task container
@@ -72,22 +72,22 @@ This was built by reading each project's actual source and docs rather than gues
 
 ## Example configs
 
-- `configs/deepseek-harness.swebench-lite.yaml` — DSH's Python SDK generates patches for SWE-bench Lite; grading via `swebench eval`.
+- `configs/deepseek-harness.swebench-lite.yaml` — DSH's Python SDK generates patches for SWE-bench Lite; graded via DeepEval.
 - `configs/mini-swe-agent.swebench-lite.yaml` — delegates entirely to `swebench infer` (which runs mini-swe-agent itself).
 - `configs/deepseek-harness.terminal-bench.yaml` — DSH installed and run inside each Terminal-Bench task container.
 - `configs/deepseek-harness.openrouter-gemma.yaml` — DSH driven by a Gemma model via OpenRouter instead of DeepSeek's own models.
 - `configs/goose.swebench-lite.yaml` — Block's Goose agent, via its real `goose run` headless CLI.
 - `configs/loop-harness.swebench-lite.yaml` — Soket AI's Loop, via its real `loop --print` headless mode (built by Loop itself for benchmark runners, with native Langfuse tracing).
-- `configs/loop-harness.soket.swebench-deepeval.yaml` / `configs/deepseek-harness.swebench-deepeval.yaml` — grade with a DeepEval GEval LLM-judge instead of Docker (see below).
+- `configs/loop-harness.soket.swebench-deepeval.yaml` / `configs/deepseek-harness.swebench-deepeval.yaml` — DeepEval grading with an explicit, independent judge model (see below).
 
-## Grading with an LLM judge instead of Docker
+## Grading: DeepEval, not Docker
 
-`swebench eval`'s real FAIL_TO_PASS/PASS_TO_PASS test run is the only *official* SWE-bench verdict, but it needs Docker and can be genuinely slow (a single instance's environment build took 30+ minutes under QEMU emulation on Apple Silicon in testing — see the ARM64 notes below). Set `benchmark.options.grading: deepeval` to instead score each patch with [DeepEval](https://deepeval.com)'s `GEval` metric — an LLM judge compares the generated patch against the dataset's own reference patch for functional correctness, no Docker involved. `grading: both` runs both and keeps them separate under `report.extra`.
+SWE-bench grading is a DeepEval `GEval` LLM judge, full stop - there's no Docker-based FAIL_TO_PASS/PASS_TO_PASS path in this project anymore. That's a deliberate simplification, not a missing feature: the official Docker grading proved slow and fragile in practice (a single instance's environment build took 30+ minutes under QEMU emulation on Apple Silicon, and separately failed outright from plain memory exhaustion on a resource-constrained VM). The judge compares each generated patch against the dataset's own reference patch for functional correctness - not an official SWE-bench verdict, but fast, cheap, and Docker-free.
 
 ```yaml
 benchmark:
+  name: swebench
   options:
-    grading: deepeval
     deepeval_judge:              # optional: defaults to the run's own model if omitted
       provider: openrouter
       name: anthropic/claude-sonnet-5
@@ -96,5 +96,7 @@ benchmark:
 ```
 
 Use a judge model different from (and ideally stronger than) whichever model generated the patch — verified in testing that a weak judge (gpt-4o-mini judging its own kind of output) gives noisier, less decisive scores even on a clearly-correct patch. `evalbench/evaluators/litellm_judge.py` wraps any `ModelConfig` as a DeepEval-compatible judge via litellm.
+
+If you specifically need the official Docker-graded verdict, run it yourself against the `preds.json` this benchmark writes - the prediction format is unchanged: `swebench eval <dataset> -p runs/<run_id>/preds.json --run-id <id>`.
 
 Have a specific "loop harness" or other project in mind that isn't wired up here? Point me at its repo/docs and I'll build a real adapter the same way — or use the `module:Class` / `generic-cli` escape hatches above right now without waiting.

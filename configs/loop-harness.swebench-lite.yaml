@@ -10,7 +10,7 @@
 
 model:
   provider: openrouter
-  name: openai/gpt-oss-120b
+  name: anthropic/claude-sonnet-5
   api_key_env: OPENROUTER_API_KEY
 
 harness:
@@ -30,7 +30,6 @@ benchmark:
     split: test
     max_instances: 1
     redo_existing: true
-    grading: deepeval
     deepeval_judge:
       provider: openrouter
       name: anthropic/claude-sonnet-5

@@ -22,7 +22,6 @@ benchmark:
     dataset: lite
     split: test
     max_instances: 3
-    grading: deepeval
     deepeval_judge:                    # a stronger, independent judge - avoids the
       provider: openrouter             # generating model grading its own work
       name: anthropic/claude-sonnet-5

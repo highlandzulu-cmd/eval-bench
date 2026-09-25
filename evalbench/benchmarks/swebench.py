@@ -1,12 +1,19 @@
 """SWE-bench adapter (https://github.com/SWE-bench/SWE-bench).
 
-Grading always goes through SWE-bench's own `swebench` CLI (Docker-based;
-we never reimplement that), reading the run summary it writes to
-`logs/evaluation/<run_id>/results.json`. `swebench eval --help` / `swebench
-infer --help` are the source of truth if these flags drift — this CLI
-(v5, `swebench eval|infer|images|report`) replaced the older
-`python -m swebench.harness.run_evaluation` entry point in 2026, though the
-README says the old form still works.
+Grading is always via DeepEval (https://deepeval.com) - an LLM judge scores
+each patch against the dataset's own reference patch. No Docker involved
+anywhere in this file. That's a deliberate tradeoff, not an oversight: the
+real FAIL_TO_PASS/PASS_TO_PASS Docker-based grading (SWE-bench's own
+`swebench eval` CLI) is the only path that produces an official SWE-bench
+verdict, but on this project it proved slow and fragile in practice - a
+single instance's environment build took 30+ minutes under QEMU emulation
+on Apple Silicon, and separately failed outright from a plain memory
+exhaustion (OOM) on a resource-constrained VM. If you need the official
+verdict, run `swebench eval <dataset> -p <preds.json> --run-id <id>`
+yourself against the `preds.json` this benchmark writes - the format is
+unchanged, only the automatic Docker step was removed.
+
+`swebench infer --help` is the source of truth if that flag drifts.
 
 Two ways to get predictions, chosen automatically by harness:
 
@@ -58,16 +65,10 @@ class SWEBenchBenchmark(Benchmark):
     - split: str = "test"
     - max_instances: int | None
     - instance_ids: list[str] | None
-    - task_repo: str | None            (local swe-bench-tasks checkout, for `swebench eval`'s local image builds)
     - skip_eval: bool = False          (skip grading entirely, only generate predictions)
-    - grading: "docker" | "deepeval" | "both" = "docker"
-      - docker: the real FAIL_TO_PASS/PASS_TO_PASS test run via `swebench eval` (needs Docker; can be slow/
-        resource-heavy, see README - this is the only grading mode that produces an official SWE-bench verdict)
-      - deepeval: an LLM-judge (https://deepeval.com) GEval score of whether the patch plausibly resolves the
-        issue, compared against the dataset's own reference patch - no Docker, much faster/cheaper, but it's
-        an opinion, not a test run. Options: deepeval_judge (a model dict like the top-level `model:` block;
-        defaults to the harness's own model) and deepeval_threshold (float, default 0.5).
-      - both: run both and keep results from each separately under report.extra.
+    - deepeval_judge: dict | None      (a model dict like the top-level `model:` block; defaults to the
+      harness's own model - see the module docstring for why using a different, stronger judge is worth it)
+    - deepeval_threshold: float = 0.5
     """
 
     def execute(self) -> BenchmarkReport:
@@ -84,15 +85,11 @@ class SWEBenchBenchmark(Benchmark):
         report = BenchmarkReport(
             run_id=self.run.run_id, benchmark="swebench", details_path=preds_path
         )
-        grading = self.options.get("grading", "docker")
         if self.options.get("skip_eval", False):
             preds = json.loads(preds_path.read_text())
             report.total = len(preds)
         else:
-            if grading in ("docker", "both"):
-                self._grade(dataset_alias, preds_path, report)
-            if grading in ("deepeval", "both"):
-                self._grade_with_deepeval(dataset_alias, preds_path, report)
+            self._grade_with_deepeval(dataset_alias, preds_path, report)
         return report
 
     def _infer_native(self, dataset_alias: str, run_dir: Path, preds_path: Path) -> None:
@@ -165,33 +162,6 @@ class SWEBenchBenchmark(Benchmark):
             }
             preds_path.write_text(json.dumps(preds, indent=2))
 
-    def _grade(self, dataset_alias: str, preds_path: Path, report: BenchmarkReport) -> None:
-        cmd = [
-            "swebench",
-            "eval",
-            dataset_alias,
-            "-p",
-            str(preds_path),
-            "--run-id",
-            self.run.run_id,
-            "-j",
-            str(self.run.max_workers),
-        ]
-        if task_repo := self.options.get("task_repo"):
-            cmd += ["--task-repo", task_repo]
-        subprocess.run(cmd, check=True)
-
-        results_path = Path("logs/evaluation") / self.run.run_id / "results.json"
-        if results_path.exists():
-            results = json.loads(results_path.read_text())
-            resolved = results.get("resolved_ids") or results.get("resolved", [])
-            report.total = len(json.loads(preds_path.read_text()))
-            report.resolved = len(resolved) if isinstance(resolved, list) else resolved
-            report.extra["results_path"] = str(results_path)
-            report.extra["raw_results"] = results
-        else:
-            print(f"[swebench] expected results at {results_path}, not found; check `swebench eval` output above")
-
     def _grade_with_deepeval(self, dataset_alias: str, preds_path: Path, report: BenchmarkReport) -> None:
         from datasets import load_dataset
         from deepeval import evaluate
@@ -258,15 +228,12 @@ class SWEBenchBenchmark(Benchmark):
             for r in result.test_results
         ]
         resolved = sum(1 for r in per_instance if r["success"])
+        report.total = len(per_instance)
+        report.resolved = resolved
         report.extra["deepeval"] = {
             "judge_model": judge.get_model_name(),
-            "total": len(per_instance),
-            "resolved": resolved,
             "per_instance": per_instance,
         }
-        if self.options.get("grading") == "deepeval":
-            report.total = len(per_instance)
-            report.resolved = resolved
 
 
 def _persist_trace(result, run_dir: Path, instance_id: str) -> None:

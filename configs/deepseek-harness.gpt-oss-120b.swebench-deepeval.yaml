@@ -22,7 +22,6 @@ benchmark:
     dataset: lite
     split: test
     max_instances: 1
-    grading: deepeval
     deepeval_judge:
       provider: openrouter
       name: anthropic/claude-sonnet-5
