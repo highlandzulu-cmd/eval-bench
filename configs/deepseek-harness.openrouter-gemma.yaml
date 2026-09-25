@@ -19,7 +19,15 @@ harness:
   name: deepseek-harness
   options:
     profile: sdk-minimal
-    enable_editor_tool: true
+    enable_editor_tool: false  # see deepseek_harness.py docstring: verified broken
+    # NOTE: this route's connectivity/auth was live-tested and confirmed
+    # working end to end (real OpenRouter call, real response). But in that
+    # same test, gemma-3-27b-it responded with a fake text-only tool call
+    # (`[bash(command="...")]`) instead of a real structured tool call, so
+    # nothing actually ran and no file was written. gpt-4o-mini through the
+    # same route/patch DID use the tool correctly with enable_editor_tool
+    # off. Verify tool-calling reliability for whichever Gemma variant you
+    # pick before trusting it on a real benchmark run.
 
 benchmark:
   name: swebench

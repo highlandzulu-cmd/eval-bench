@@ -14,7 +14,8 @@ harness:
   name: deepseek-harness
   options:
     profile: sdk-minimal
-    enable_editor_tool: true   # gives the agent str_replace_editor, not just bash
+    enable_editor_tool: false  # str_replace_editor patch is currently broken (verified
+                                # not exposed to the model in sdk-minimal) - bash only for now
 
 benchmark:
   name: swebench

@@ -78,8 +78,22 @@ def _pi_ai_patch_yaml(model: ModelConfig) -> str:
 class DeepSeekHarnessAdapter(Harness):
     """options:
     - profile: str = "sdk-minimal"
-    - enable_editor_tool: bool = True
+    - enable_editor_tool: bool = False   (see warning below; default is the
+      proven-working path)
     - dsh_home_root: str | None  (defaults to a run-scoped temp dir)
+
+    enable_editor_tool warning: live-tested against OpenRouter (gpt-4o-mini
+    and gemma-3-27b-it) and found NOT to actually expose str_replace_editor
+    to the model in the sdk-minimal profile — both models correctly reported
+    they had no way to write files, no hallucination involved. Mounting
+    `dsh-fs-local` + `dsh-tool-str-replace-editor` via a patch isn't
+    sufficient by itself; something else (likely wiring the tool into
+    dsh-tools'/dsh-agent's active tool list) is still needed and hasn't been
+    root-caused yet. Plain bash-only (the default) was verified working
+    end-to-end: model runs a shell command, file gets written, `git diff`
+    captures it. Leave this off until that's fixed, or verify it yourself
+    with `dsh --profile sdk-minimal --patch <this patch> --dump-config`
+    before trusting it on a real run.
     """
 
     def __init__(self, model, options):
@@ -101,7 +115,7 @@ class DeepSeekHarnessAdapter(Harness):
         os.environ[self.model.api_key_env] = self.model.resolve_api_key()
 
         profile = self.options.get("profile", "sdk-minimal")
-        enable_editor = self.options.get("enable_editor_tool", True)
+        enable_editor = self.options.get("enable_editor_tool", False)
 
         patch_files: list = []
         if enable_editor and profile == "sdk-minimal":
