@@ -147,10 +147,12 @@ class DeepSeekHarnessAdapter(Harness):
                 os.unlink(p)
 
         patch = _git_diff(workspace)
+        session_logs = sorted(dsh_home.rglob("session.v3.jsonl"))
         return HarnessResult(
             patch=patch,
             final_response=result.final_response,
             exit_ok=True,
+            raw_log_path=session_logs[0] if session_logs else None,
             extra={"dsh_home": str(dsh_home), "dsh_provider": dsh_provider},
         )
 

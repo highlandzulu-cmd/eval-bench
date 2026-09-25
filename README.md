@@ -17,6 +17,8 @@ in eval-bench's source needs editing to add a new one.
 
 `evalbench run configs/deepseek-harness.swebench-lite.yaml` runs the whole thing end to end and prints a resolve rate.
 
+Every run also persists each instance's full agent trace (every tool call, every model turn) to `runs/<run_id>/traces/<instance_id>.*` — not just the final patch. The harness's own scratch state (e.g. DeepSeek Harness's temp `dsh_home`, which otherwise leaks a full `node_modules` install per task) is cleaned up right after the trace is copied out, in `evalbench/benchmarks/swebench.py:_persist_trace`.
+
 ## Install
 
 ```bash

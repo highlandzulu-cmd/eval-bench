@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from evalbench.harnesses.base import Harness, HarnessResult
@@ -79,11 +80,17 @@ class MiniSweAgentAdapter(Harness):
         agent = DefaultAgent(model, env, **agent_config)
 
         info = agent.run(instruction)
+        fd, trace_path_str = tempfile.mkstemp(prefix=f"mini-swe-{session_id}-", suffix=".traj.json")
+        os.close(fd)
+        trace_path = Path(trace_path_str)
+        agent.save(trace_path)
+
         patch = _git_diff(workspace)
         return HarnessResult(
             patch=patch,
             final_response=info.get("submission", ""),
             exit_ok=info.get("exit_status") == "Submitted",
+            raw_log_path=trace_path,
             extra={"exit_status": info.get("exit_status")},
         )
 

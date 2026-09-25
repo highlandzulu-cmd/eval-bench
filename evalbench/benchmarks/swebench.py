@@ -142,6 +142,7 @@ class SWEBenchBenchmark(Benchmark):
                     session_id=instance_id,
                 )
                 patch = result.patch
+                _persist_trace(result, run_dir, instance_id)
             except Exception as e:  # noqa: BLE001 - record and keep going
                 patch = ""
                 print(f"[swebench] {instance_id} failed: {e}")
@@ -178,6 +179,28 @@ class SWEBenchBenchmark(Benchmark):
             report.extra["raw_results"] = results
         else:
             print(f"[swebench] expected results at {results_path}, not found; check `swebench eval` output above")
+
+
+def _persist_trace(result, run_dir: Path, instance_id: str) -> None:
+    """Copy the harness's raw session/trajectory log out of wherever the
+    harness happened to write it (typically an OS temp dir - see each
+    harness's `solve()`) into `run_dir/traces/`, then clean up the harness's
+    own scratch directory so repeated runs don't silently leak disk space.
+    """
+    import shutil
+
+    if result.raw_log_path and result.raw_log_path.exists():
+        traces_dir = run_dir / "traces"
+        traces_dir.mkdir(parents=True, exist_ok=True)
+        suffix = "".join(result.raw_log_path.suffixes) or ".log"
+        shutil.copy2(result.raw_log_path, traces_dir / f"{instance_id}{suffix}")
+        # dsh's log lives inside dsh_home (removed below as a whole tree);
+        # mini-swe-agent/goose write a standalone temp file - remove that too.
+        if not result.extra.get("dsh_home"):
+            result.raw_log_path.unlink(missing_ok=True)
+
+    if dsh_home := result.extra.get("dsh_home"):
+        shutil.rmtree(dsh_home, ignore_errors=True)
 
 
 def _checkout_repo(repo: str, base_commit: str, workspace: Path) -> None:

@@ -37,6 +37,9 @@ def run(config: str = typer.Argument(..., help="Path to a run config YAML file."
     table.add_row("resolve rate", f"{report.resolve_rate:.1%}")
     if report.details_path:
         table.add_row("details", str(report.details_path))
+        traces_dir = report.details_path.parent / "traces"
+        if traces_dir.is_dir():
+            table.add_row("traces", str(traces_dir))
     console.print(table)
 
 
